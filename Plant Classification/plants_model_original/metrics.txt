@@ -1,0 +1,5 @@
+After 5 Epochs -> Train Loss: 0.1528, Train Accuracy: 95.0636
+		  Validation Loss: 0.0455, Validation Accuracy: 89.438
+
+
+Test Loss: 0.0203, Test Accuracy: 95.0097, Inference Time: 0.1426 seconds

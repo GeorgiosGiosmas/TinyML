@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "usb_host.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -47,11 +46,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-I2C_HandleTypeDef hi2c1;
-
-I2S_HandleTypeDef hi2s3;
-
-SPI_HandleTypeDef hspi1;
+CRC_HandleTypeDef hcrc;
 
 TIM_HandleTypeDef htim10;
 
@@ -64,13 +59,9 @@ UART_HandleTypeDef huart2;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_I2C1_Init(void);
-static void MX_I2S3_Init(void);
-static void MX_SPI1_Init(void);
 static void MX_TIM10_Init(void);
 static void MX_USART2_UART_Init(void);
-void MX_USB_HOST_Process(void);
-
+static void MX_CRC_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -92,35 +83,37 @@ int main(void)
   int buf_len = 0;
   ai_error ai_err;
   ai_i32 nbatch;
-  uint32_t timestamp;
-  float y_val;
+  uint32_t start, end;
+  float scale = 0.003906250;
+  int8_t zero_point = -128;
 
   // Chunk of memory used to hold intermediate values for neural network
-  AI_ALIGNED(4) ai_u8 activations[AI_PLANTSVILLAGE_DATA_ACTIVATIONS_SIZE];
+  AI_ALIGNED(4) ai_float activations[AI_PLANTSVILLAGE_DATA_ACTIVATIONS_SIZE];
 
   // Buffers used to store input and output tensors
-  AI_ALIGNED(4) ai_i8 in_data[AI_PLANTSVILLAGE_IN_1_SIZE_BYTES];
-  AI_ALIGNED(4) ai_i8 out_data[AI_PLANTSVILLAGE_OUT_1_SIZE_BYTES];
+  AI_ALIGNED(4) ai_float in_data[AI_PLANTSVILLAGE_IN_1_SIZE];
+  AI_ALIGNED(4) ai_float out_data[AI_PLANTSVILLAGE_OUT_1_SIZE];
 
   // Pointer to our model
   ai_handle plantsvillage_model = AI_HANDLE_NULL;
 
   // Initialize wrapper structs that hold pointers to data and info about
   // data (tensor height, width, channels)
-  ai_buffer ai_input[AI_PLANTSVILLAGE_IN_NUM] = { 0 };
-  ai_buffer ai_output[AI_PLANTSVILLAGE_OUT_NUM] = { 0 };
+
+  ai_buffer *ai_input = AI_PLANTSVILLAGE_IN;
+  ai_buffer *ai_output = AI_PLANTSVILLAGE_OUT;
 
   // Set working memory and get weights/biases from model
   ai_network_params ai_params = {
-		  AI_PLANTSVILLAGE_DATA_WEIGHTS(ai_plantsvillage_data_weights_get()),
-		  AI_PLANTSVILLAGE_DATA_ACTIVATIONS(activations)
+		  .params = AI_PLANTSVILLAGE_DATA_WEIGHTS(ai_plantsvillage_data_weights_get()),
+		  .activations = AI_PLANTSVILLAGE_DATA_ACTIVATIONS(activations)
   };
 
   // Set pointers wrapper structs to our data buffers
-  ai_input[0].format = 1;
-  ai_input[0].data = AI_HANDLE_PTR(in_data);
-  ai_output[0].format = 1;
-  ai_output[0].data = AI_HANDLE_PTR(out_data);
+  ai_input->size = 1;
+  ai_input->data = AI_HANDLE_PTR(in_data);
+  ai_output->size = 1;
+  ai_output->data = AI_HANDLE_PTR(out_data);
 
   /* USER CODE END 1 */
 
@@ -142,12 +135,9 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_I2C1_Init();
-  MX_I2S3_Init();
-  MX_SPI1_Init();
-  MX_USB_HOST_Init();
   MX_TIM10_Init();
   MX_USART2_UART_Init();
+  MX_CRC_Init();
   /* USER CODE BEGIN 2 */
 
   // Start timer/counter
@@ -181,41 +171,45 @@ int main(void)
   while (1)
   {
 	// Fill input buffer
-	/*(ai_float *)in_data = {
-			0xc2b8b6, 0xc1b7b5, 0xc1b8b3, 0xbbb0ac, 0xb4a9a5, 0xafa4a0, 0xafa4a2, 0xb8aca9, 0xbaaead, 0xbaafad, 0xbaafad, 0xb6aba7, 0xb0a29f, 0xaba09c, 0xaca19d, 0xb3a8a6, 0xb8ada9, 0xb9aeaa, 0xb6aba7, 0xb1a6a2, 0xaca19d, 0xada29e, 0xbcadad, 0x827e6f, 0x494f36, 0xaea69f, 0xb8acaa, 0xaca29f, 0xaa9f9b, 0xa99b98, 0xada29e, 0xb4a9a5, 0xb5aaa6, 0xb3a8a4, 0xb1a6a2, 0xb1a6a2, 0xb4aaa5, 0xbdb1af, 0x9d978d, 0x3e4b31, 0x394b31, 0x66705b, 0xb2a6a3, 0xafa19e, 0xaa9c99, 0xab9d9a, 0xad9f9c, 0xac9f9c, 0xad9f9c, 0xafa19e, 0xaea09d, 0xafa4a0, 0xb7a9a7, 0xa19991, 0x44553d, 0x425640, 0x506050, 0x364932, 0x7b7f6d, 0xb4a5a3, 0xa89d9b, 0xa99b98, 0xa79998, 0xa79996, 0xad9f9c, 0xab9d9a, 0xab9d9a, 0xa79a96, 0xb0a09e, 0x606650, 0x314329, 0x364732, 0x4d5d4f, 0x435643, 0x3d4e38, 0x9b908b, 0xac9d9b, 0xa39694, 0x9f918e, 0xa29491, 0xa99b98, 0xa49693, 0xa59894, 0xab9b9a, 0x878073, 0x36462b, 0x3c4e35, 0x3e4d36, 0x516351, 0x3d503b, 0x364831, 0x656157, 0xa69795, 0x9d8f8b, 0xa0918e, 0xa29493, 0xa49591, 0xa29390, 0xa79895, 0xab9c99, 0x6c745e, 0x3a4f33, 0x3c4b35, 0x465541, 0x4f614b, 0x495c44, 0x293724, 0x393b2f, 0x9a8b89, 0x9e8f8c, 0xa09090, 0x9c8c8c, 0x9d8e88, 0xa39491, 0xa1928f, 0x9c8d87, 0x5e6245, 0x4a5c3b, 0x48583f, 0x5a6a54, 0x505f46, 0x2f3a2b, 0x2c3c2b, 0x3a3d30, 0x8c7b79, 0x9a8b88, 0x978787, 0x998a87, 0x9b8a83, 0x9c8b84, 0x998881, 0x9a8882, 0x4f4c34, 0x232b10, 0x37442d, 0x5d6b51, 0x49563f, 0x475844, 0x3f523c, 0x4b5444, 0x82716f, 0x978583, 0x948484, 0x938383, 0x8f7d7a, 0x96857e, 0x96857e, 0x958280, 0x83756c, 0x3d4129, 0x313c24, 0x55614a, 0x5b6d53, 0x536750, 0x485b47, 0x40523f, 0x5f6253, 0x92837e, 0x8f7f7d, 0x8c7a7a, 0x907e78, 0x94837c, 0x94837c, 0x91807a, 0x97857e, 0x675952, 0x252219, 0x4e573c, 0x56694b, 0x4a5e45, 0x52664f, 0x51664f, 0x36382b, 0x5d4d4a, 0x8e7c79, 0x867472, 0x8e7c76, 0x93817b, 0x93817b, 0x907f7b, 0x93827b, 0x8a7671, 0x615047, 0x424529, 0x3c4730, 0x343b29, 0x2f3325, 0x201e15, 0x1d1111, 0x5d4c49, 0x897770, 0x857170, 0x8f7c76, 0x8e7b75, 0x8e7b75, 0x8a7772, 0x8b7872, 0x93807b, 0x806e62, 0x312719, 0x22190e, 0x1b170a, 0x1c130d, 0x1b0f0f, 0x3c2c2b, 0x83726c, 0x8a7972, 0x826e6d, 0x8a7771, 0x8c7973, 0x8c7973, 0x897670, 0x8a7771, 0x8c7973, 0x8c7974, 0x786660, 0x63524c, 0x4d3f3a, 0x575040, 0x554641, 0x776462, 0x87766f, 0x84716b, 0x847270, 0x88736e, 0x8a7772, 0x88746f, 0x84716b, 0x86726d, 0x86736d, 0x897670, 0x8a7771, 0x8a7670, 0x846f6a, 0x756a5a, 0x73645e, 0x877573, 0x806c6b, 0x816f6d, 0x7f6e6c, 0x86716c, 0x816c67, 0x826d68, 0x806d67, 0x826d68, 0x83706a, 0x816f69, 0x7c6963, 0x7b6862, 0x7b6862, 0x76675c, 0x655450, 0x7a6867, 0x847270, 0x7e6c69, 0x7a6965
-  	};*/
+	ai_float raw_data[AI_PLANTSVILLAGE_IN_1_SIZE] = {
+			0.7608, 0.7216, 0.7137, 0.7569, 0.7176, 0.7098, 0.7569, 0.7216, 0.7020, 0.7333, 0.6902, 0.6745, 0.7059, 0.6627, 0.6471, 0.6863, 0.6431, 0.6275, 0.6863, 0.6431, 0.6353, 0.7216, 0.6745, 0.6627, 0.7294, 0.6824, 0.6784, 0.7294, 0.6863, 0.6784, 0.7294, 0.6863, 0.6784, 0.7137, 0.6706, 0.6549, 0.6902, 0.6353, 0.6235, 0.6706, 0.6275, 0.6118, 0.6745, 0.6314, 0.6157, 0.7020, 0.6588, 0.6510, 0.7216, 0.6784, 0.6627, 0.7255, 0.6824, 0.6667, 0.7137, 0.6706, 0.6549, 0.6941, 0.6510, 0.6353, 0.6745, 0.6314, 0.6157, 0.6784, 0.6353, 0.6196, 0.7373, 0.6784, 0.6784, 0.5098, 0.4941, 0.4353, 0.2863, 0.3098, 0.2118, 0.6824, 0.6510, 0.6235, 0.7216, 0.6745, 0.6667, 0.6745, 0.6353, 0.6235, 0.6667, 0.6235, 0.6078, 0.6627, 0.6078, 0.5961, 0.6784, 0.6353, 0.6196, 0.7059, 0.6627, 0.6471, 0.7098, 0.6667, 0.6510, 0.7020, 0.6588, 0.6431, 0.6941, 0.6510, 0.6353, 0.6941, 0.6510, 0.6353, 0.7059, 0.6667, 0.6471, 0.7412, 0.6941, 0.6863, 0.6157, 0.5922, 0.5529, 0.2431, 0.2941, 0.1922, 0.2235, 0.2941, 0.1922, 0.4000, 0.4392, 0.3569, 0.6980, 0.6510, 0.6392, 0.6863, 0.6314, 0.6196, 0.6667, 0.6118, 0.6000, 0.6706, 0.6157, 0.6039, 0.6784, 0.6235, 0.6118, 0.6745, 0.6235, 0.6118, 0.6784, 0.6235, 0.6118, 0.6863, 0.6314, 0.6196, 0.6824, 0.6275, 0.6157, 0.6863, 0.6431, 0.6275, 0.7176, 0.6627, 0.6549, 0.6314, 0.6000, 0.5686, 0.2667, 0.3333, 0.2392, 0.2588, 0.3373, 0.2510, 0.3137, 0.3765, 0.3137, 0.2118, 0.2863, 0.1961, 0.4824, 0.4980, 0.4275, 0.7059, 0.6471, 0.6392, 0.6588, 0.6157, 0.6078, 0.6627, 0.6078, 0.5961, 0.6549, 0.6000, 0.5961, 0.6549, 0.6000, 0.5882, 0.6784, 0.6235, 0.6118, 0.6706, 0.6157, 0.6039, 0.6706, 0.6157, 0.6039, 0.6549, 0.6039, 0.5882, 0.6902, 0.6275, 0.6196, 0.3765, 0.4000, 0.3137, 0.1922, 0.2627, 0.1608, 0.2118, 0.2784, 0.1961, 0.3020, 0.3647, 0.3098, 0.2627, 0.3373, 0.2627, 0.2392, 0.3059, 0.2196, 0.6078, 0.5647, 0.5451, 0.6745, 0.6157, 0.6078, 0.6392, 0.5882, 0.5804, 0.6235, 0.5686, 0.5569, 0.6353, 0.5804, 0.5686, 0.6627, 0.6078, 0.5961, 0.6431, 0.5882, 0.5765, 0.6471, 0.5961, 0.5804, 0.6706, 0.6078, 0.6039, 0.5294, 0.5020, 0.4510, 0.2118, 0.2745, 0.1686, 0.2353, 0.3059, 0.2078, 0.2431, 0.3020, 0.2118, 0.3176, 0.3882, 0.3176, 0.2392, 0.3137, 0.2314, 0.2118, 0.2824, 0.1922, 0.3961, 0.3804, 0.3412, 0.6510, 0.5922, 0.5843, 0.6157, 0.5608, 0.5451, 0.6275, 0.5686, 0.5569, 0.6353, 0.5804, 0.5765, 0.6431, 0.5843, 0.5686, 0.6353, 0.5765, 0.5647, 0.6549, 0.5961, 0.5843, 0.6706, 0.6118, 0.6000, 0.4235, 0.4549, 0.3686, 0.2275, 0.3098, 0.2000, 0.2353, 0.2941, 0.2078, 0.2745, 0.3333, 0.2549, 0.3098, 0.3804, 0.2941, 0.2863, 0.3608, 0.2667, 0.1608, 0.2157, 0.1412, 0.2235, 0.2314, 0.1843, 0.6039, 0.5451, 0.5373, 0.6196, 0.5608, 0.5490, 0.6275, 0.5647, 0.5647, 0.6118, 0.5490, 0.5490, 0.6157, 0.5569, 0.5333, 0.6392, 0.5804, 0.5686, 0.6314, 0.5725, 0.5608, 0.6118, 0.5529, 0.5294, 0.3686, 0.3843, 0.2706, 0.2902, 0.3608, 0.2314, 0.2824, 0.3451, 0.2471, 0.3529, 0.4157, 0.3294, 0.3137, 0.3725, 0.2745, 0.1843, 0.2275, 0.1686, 0.1725, 0.2353, 0.1686, 0.2275, 0.2392, 0.1882, 0.5490, 0.4824, 0.4745, 0.6039, 0.5451, 0.5333, 0.5922, 0.5294, 0.5294, 0.6000, 0.5412, 0.5294, 0.6078, 0.5412, 0.5137, 0.6118, 0.5451, 0.5176, 0.6000, 0.5333, 0.5059, 0.6039, 0.5333, 0.5098, 0.3098, 0.2980, 0.2039, 0.1373, 0.1686, 0.0627, 0.2157, 0.2667, 0.1765, 0.3647, 0.4196, 0.3176, 0.2863, 0.3373, 0.2471, 0.2784, 0.3451, 0.2667, 0.2471, 0.3216, 0.2353, 0.2941, 0.3294, 0.2667, 0.5098, 0.4431, 0.4353, 0.5922, 0.5216, 0.5137, 0.5804, 0.5176, 0.5176, 0.5765, 0.5137, 0.5137, 0.5608, 0.4902, 0.4784, 0.5882, 0.5216, 0.4941, 0.5882, 0.5216, 0.4941, 0.5843, 0.5098, 0.5020, 0.5137, 0.4588, 0.4235, 0.2392, 0.2549, 0.1608, 0.1922, 0.2353, 0.1412, 0.3333, 0.3804, 0.2902, 0.3569, 0.4275, 0.3255, 0.3255, 0.4039, 0.3137, 0.2824, 0.3569, 0.2784, 0.2510, 0.3216, 0.2471, 0.3725, 0.3843, 0.3255, 0.5725, 0.5137, 0.4941, 0.5608, 0.4980, 0.4902, 0.5490, 0.4784, 0.4784, 0.5647, 0.4941, 0.4706, 0.5804, 0.5137, 0.4863, 0.5804, 0.5137, 0.4863, 0.5686, 0.5020, 0.4784, 0.5922, 0.5216, 0.4941, 0.4039, 0.3490, 0.3216, 0.1451, 0.1333, 0.0980, 0.3059, 0.3412, 0.2353, 0.3373, 0.4118, 0.2941, 0.2902, 0.3686, 0.2706, 0.3216, 0.4000, 0.3098, 0.3176, 0.4000, 0.3098, 0.2118, 0.2196, 0.1686, 0.3647, 0.3020, 0.2902, 0.5569, 0.4863, 0.4745, 0.5255, 0.4549, 0.4471, 0.5569, 0.4863, 0.4627, 0.5765, 0.5059, 0.4824, 0.5765, 0.5059, 0.4824, 0.5647, 0.4980, 0.4824, 0.5765, 0.5098, 0.4824, 0.5412, 0.4627, 0.4431, 0.3804, 0.3137, 0.2784, 0.2588, 0.2706, 0.1608, 0.2353, 0.2784, 0.1882, 0.2039, 0.2314, 0.1608, 0.1843, 0.2000, 0.1451, 0.1255, 0.1176, 0.0824, 0.1137, 0.0667, 0.0667, 0.3647, 0.2980, 0.2863, 0.5373, 0.4667, 0.4392, 0.5216, 0.4431, 0.4392, 0.5608, 0.4863, 0.4627, 0.5569, 0.4824, 0.4588, 0.5569, 0.4824, 0.4588, 0.5412, 0.4667, 0.4471, 0.5451, 0.4706, 0.4471, 0.5765, 0.5020, 0.4824, 0.5020, 0.4314, 0.3843, 0.1922, 0.1529, 0.0980, 0.1333, 0.0980, 0.0549, 0.1059, 0.0902, 0.0392, 0.1098, 0.0745, 0.0510, 0.1059, 0.0588, 0.0588, 0.2353, 0.1725, 0.1686, 0.5137, 0.4471, 0.4235, 0.5412, 0.4745, 0.4471, 0.5098, 0.4314, 0.4275, 0.5412, 0.4667, 0.4431, 0.5490, 0.4745, 0.4510, 0.5490, 0.4745, 0.4510, 0.5373, 0.4627, 0.4392, 0.5412, 0.4667, 0.4431, 0.5490, 0.4745, 0.4510, 0.5490, 0.4745, 0.4549, 0.4706, 0.4000, 0.3765, 0.3882, 0.3216, 0.2980, 0.3020, 0.2471, 0.2275, 0.3412, 0.3137, 0.2510, 0.3333, 0.2745, 0.2549, 0.4667, 0.3922, 0.3843, 0.5294, 0.4627, 0.4353, 0.5176, 0.4431, 0.4196, 0.5176, 0.4471, 0.4392, 0.5333, 0.4510, 0.4314, 0.5412, 0.4667, 0.4471, 0.5333, 0.4549, 0.4353, 0.5176, 0.4431, 0.4196, 0.5255, 0.4471, 0.4275, 0.5255, 0.4510, 0.4275, 0.5373, 0.4627, 0.4392, 0.5412, 0.4667, 0.4431, 0.5412, 0.4627, 0.4392, 0.5176, 0.4353, 0.4157, 0.4588, 0.4157, 0.3529, 0.4510, 0.3922, 0.3686, 0.5294, 0.4588, 0.4510, 0.5020, 0.4235, 0.4196, 0.5059, 0.4353, 0.4275, 0.4980, 0.4314, 0.4235, 0.5255, 0.4431, 0.4235, 0.5059, 0.4235, 0.4039, 0.5098, 0.4275, 0.4078, 0.5020, 0.4275, 0.4039, 0.5098, 0.4275, 0.4078, 0.5137, 0.4392, 0.4157, 0.5059, 0.4353, 0.4118, 0.4863, 0.4118, 0.3882, 0.4824, 0.4078, 0.3843, 0.4824, 0.4078, 0.3843, 0.4627, 0.4039, 0.3608, 0.3961, 0.3294, 0.3137, 0.4784, 0.4078, 0.4039, 0.5176, 0.4471, 0.4392, 0.4941, 0.4235, 0.4118, 0.4784, 0.4118, 0.3961
+	};
+
 	for(uint32_t i = 0; i <AI_PLANTSVILLAGE_IN_1_SIZE; i++)
 	{
-		((ai_float *)in_data)[i] = (ai_float)2.0;
+		in_data[i] = raw_data[i];
 	}
 
 	// Get timer timestamp
-	timestamp = htim10.Instance->CNT;
+	start = htim10.Instance->CNT;
 
 	// Permorm Inference
-	nbatch = ai_plantsvillage_run(plantsvillage_model, &ai_input, &ai_output);
+	nbatch = ai_plantsvillage_run(plantsvillage_model, ai_input, ai_output);
 	if(nbatch!=1)
 	{
 	  buf_len = sprintf(buf, "Error: couldn't run inference\r\n");
 	  HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);
 	}
 
-	// Read output (predicted y) of neural network
-	y_val = ((float *)out_data)[0];
+	end = htim10.Instance->CNT;
 
-	// Print output of neural network along with inference time (microseconds)
-	buf_len = sprintf(buf,
-					  "Output: %f | Duration: %lu\r\n",
-					  y_val,
-					  htim10.Instance->CNT - timestamp);
+	// Print output of neural network along with inference time time units
+	buf_len = sprintf(buf, "Output: [ ");
+	HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);
 
+	for( uint32_t i=0; i<AI_PLANTSVILLAGE_OUT_1_SIZE; i++)
+	{
+		buf_len = sprintf(buf, " %1.4f ", out_data[i]);
+		HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);
+	}
+
+	buf_len = sprintf(buf, " ] | Duration: %lu \r\n", end - start);
 	HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);
 
 	// Wait before doing it again
 	HAL_Delay(500);
 
     /* USER CODE END WHILE */
-    MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
   }
@@ -243,9 +237,9 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 336;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 168;
+  RCC_OscInitStruct.PLL.PLLP = 2;
   RCC_OscInitStruct.PLL.PLLQ = 7;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
@@ -257,119 +251,39 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV2;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
   {
     Error_Handler();
   }
 }
 
 /**
-  * @brief I2C1 Initialization Function
+  * @brief CRC Initialization Function
   * @param None
   * @retval None
   */
-static void MX_I2C1_Init(void)
+static void MX_CRC_Init(void)
 {
 
-  /* USER CODE BEGIN I2C1_Init 0 */
+  /* USER CODE BEGIN CRC_Init 0 */
 
-  /* USER CODE END I2C1_Init 0 */
+  /* USER CODE END CRC_Init 0 */
 
-  /* USER CODE BEGIN I2C1_Init 1 */
+  /* USER CODE BEGIN CRC_Init 1 */
 
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
-  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  /* USER CODE END CRC_Init 1 */
+  hcrc.Instance = CRC;
+  if (HAL_CRC_Init(&hcrc) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN I2C1_Init 2 */
+  /* USER CODE BEGIN CRC_Init 2 */
 
-  /* USER CODE END I2C1_Init 2 */
-
-}
-
-/**
-  * @brief I2S3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2S3_Init(void)
-{
-
-  /* USER CODE BEGIN I2S3_Init 0 */
-
-  /* USER CODE END I2S3_Init 0 */
-
-  /* USER CODE BEGIN I2S3_Init 1 */
-
-  /* USER CODE END I2S3_Init 1 */
-  hi2s3.Instance = SPI3;
-  hi2s3.Init.Mode = I2S_MODE_MASTER_TX;
-  hi2s3.Init.Standard = I2S_STANDARD_PHILIPS;
-  hi2s3.Init.DataFormat = I2S_DATAFORMAT_16B;
-  hi2s3.Init.MCLKOutput = I2S_MCLKOUTPUT_ENABLE;
-  hi2s3.Init.AudioFreq = I2S_AUDIOFREQ_96K;
-  hi2s3.Init.CPOL = I2S_CPOL_LOW;
-  hi2s3.Init.ClockSource = I2S_CLOCK_PLL;
-  hi2s3.Init.FullDuplexMode = I2S_FULLDUPLEXMODE_DISABLE;
-  if (HAL_I2S_Init(&hi2s3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2S3_Init 2 */
-
-  /* USER CODE END I2S3_Init 2 */
-
-}
-
-/**
-  * @brief SPI1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI1_Init(void)
-{
-
-  /* USER CODE BEGIN SPI1_Init 0 */
-
-  /* USER CODE END SPI1_Init 0 */
-
-  /* USER CODE BEGIN SPI1_Init 1 */
-
-  /* USER CODE END SPI1_Init 1 */
-  /* SPI1 parameter configuration*/
-  hspi1.Instance = SPI1;
-  hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi1.Init.CRCPolynomial = 10;
-  if (HAL_SPI_Init(&hspi1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI1_Init 2 */
-
-  /* USER CODE END SPI1_Init 2 */
+  /* USER CODE END CRC_Init 2 */
 
 }
 
@@ -389,7 +303,7 @@ static void MX_TIM10_Init(void)
 
   /* USER CODE END TIM10_Init 1 */
   htim10.Instance = TIM10;
-  htim10.Init.Prescaler = 80-1;
+  htim10.Init.Prescaler = 8000-1;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim10.Init.Period = 65535 - 1;
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -495,6 +409,22 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : I2S3_WS_Pin */
+  GPIO_InitStruct.Pin = I2S3_WS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF6_SPI3;
+  HAL_GPIO_Init(I2S3_WS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : SPI1_SCK_Pin SPI1_MISO_Pin SPI1_MOSI_Pin */
+  GPIO_InitStruct.Pin = SPI1_SCK_Pin|SPI1_MISO_Pin|SPI1_MOSI_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pin : BOOT1_Pin */
   GPIO_InitStruct.Pin = BOOT1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -518,11 +448,41 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : I2S3_MCK_Pin I2S3_SCK_Pin I2S3_SD_Pin */
+  GPIO_InitStruct.Pin = I2S3_MCK_Pin|I2S3_SCK_Pin|I2S3_SD_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF6_SPI3;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : VBUS_FS_Pin */
+  GPIO_InitStruct.Pin = VBUS_FS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(VBUS_FS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : OTG_FS_ID_Pin OTG_FS_DM_Pin OTG_FS_DP_Pin */
+  GPIO_InitStruct.Pin = OTG_FS_ID_Pin|OTG_FS_DM_Pin|OTG_FS_DP_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pin : OTG_FS_OverCurrent_Pin */
   GPIO_InitStruct.Pin = OTG_FS_OverCurrent_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(OTG_FS_OverCurrent_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : Audio_SCL_Pin Audio_SDA_Pin */
+  GPIO_InitStruct.Pin = Audio_SCL_Pin|Audio_SDA_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : MEMS_INT2_Pin */
   GPIO_InitStruct.Pin = MEMS_INT2_Pin;

@@ -1,8 +1,26 @@
+# PyTorch (CPU — for GPU, replace with the appropriate torch+cu variant)
 torch
 torchvision
-scikit-learn
-matplotlib 
-pillow
+torchsummary
+
+# TensorFlow & ONNX conversion pipeline
+tensorflow
+onnx
+onnx-tf
+
+# Data science & visualization
 numpy
 pandas
+matplotlib
+scikit-learn
+Pillow
+
+# Jupyter
+jupyter
+ipywidgets
+
+# Dataset download
 opendatasets
+
+# Utilities
+tqdm

@@ -1,26 +1,29 @@
-# PyTorch (CPU — for GPU, replace with the appropriate torch+cu variant)
-torch
-torchvision
-torchsummary
-
-# TensorFlow & ONNX conversion pipeline
-tensorflow
-onnx
-onnx-tf
-
+# PyTorch (CPU)
+torch==2.1.0
+torchvision==0.16.0
+torchsummary==1.5.1
+ 
+# TensorFlow & ONNX conversion pipeline (pinned — onnx-tf is abandoned and only works with these versions)
+tensorflow==2.10.0
+tensorflow-addons==0.19.0
+tensorflow-probability==0.18.0
+onnx==1.12.0
+onnx-tf==1.10.0
+ 
 # Data science & visualization
-numpy
-pandas
-matplotlib
-scikit-learn
-Pillow
-
+numpy==1.23.5
+pandas==1.5.3
+matplotlib==3.7.1
+scikit-learn==1.2.2
+Pillow==9.5.0
+ 
 # Jupyter
 jupyter
 ipywidgets
-
+ 
 # Dataset download
 opendatasets
-
+ 
 # Utilities
 tqdm
+ 

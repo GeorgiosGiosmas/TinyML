@@ -90,7 +90,7 @@ Both pipelines use custom CNN architectures designed from scratch (no transfer l
 | Dropout | rate 0.25 |
 | Output | 15 classes |
 
-> **Note:** Edge Impulse applies int8 quantization automatically during profiling.
+> **Note:** Edge Impulse applies int8 quantization automatically during profiling. For every created Impulse both the Unoptimized(float32) and the Optimized(int8) are available. Edge Impulse gives also an estimate of inference time, ram usage and flash usage for the device of deployment.
 
 ### PyTorch Architectures
 
@@ -138,11 +138,11 @@ All models were trained through the Edge Impulse Studio web interface.
 
 | # | Architecture | Input Size | Accuracy | Notes |
 |---|-------------|-----------|----------|-------|
-| 1 | EI Big | 256×256 | <!-- fill --> | <!-- too large for STM32? --> |
-| 2 | EI Big | 128×128 | <!-- fill --> | |
-| 3 | EI Big | 64×64 | <!-- fill --> | |
-| 4 | EI Small | 32×32 | <!-- fill --> | <!-- fits on STM32 --> |
-| 5 | EI Small | 16×16 | <!-- fill --> | <!-- fits on STM32 --> |
+| 1 | EI Big | 256×256 | 82.95% | Doesn't fit on STM32 |
+| 2 | EI Big | 128×128 | 91.83% | Doesn't fit on STM32|
+| 3 | EI Big | 64×64 | 92.92% | Fits on STM32 |
+| 4 | EI Small | 32×32 | 89.43% | Fits on STM32 |
+| 5 | EI Small | 16×16 | 82.61% | Fits on STM32 |
 
 <!-- 
     For each model, include:
@@ -194,7 +194,13 @@ All models were trained locally using PyTorch. Each configuration was trained wi
 ### Edge Impulse Path
 Edge Impulse handles conversion and quantization automatically, producing a `.pack` file ready for the STM32 board.
 
-<!-- Describe briefly what Edge Impulse does under the hood (int8 quantization, EON compiler, etc.) -->
+In Edge Impulse, deployment starts from the Deployment page in the Studio. You first select your deployment target — in this case, Cube.MX CMSIS-PACK, which packages the entire impulse (signal processing blocks, model weights, and inference code) into a single .pack file compatible with STM32CubeIDE. 
+
+Before building, you choose between two inference engines: the EON Compiler or TFLite Micro. The EON Compiler translates the neural network directly into optimized C++ source code, eliminating the TFLite interpreter overhead and typically reducing RAM usage by 25–55% and flash by up to 35% compared to TFLite Micro, with no loss in accuracy. On Cortex-M4F targets like the STM32F407G, it also automatically leverages CMSIS-NN kernels for accelerated inference. You can also select whether to deploy the quantized int8 or the unquantized float32 version of the model. 
+
+Once you click Build, Edge Impulse compiles everything server-side and provides a .pack file for download. This file is then imported into STM32CubeIDE via the CMSIS-PACK manager, after which inference can be invoked with a single function call (run_classifier), and results — including per-class probabilities and timing breakdowns for DSP and classification — are available immediately.
+
+![Edge_Impulse_Deployment](images/edge_impulse_deployment.png)
 
 ### PyTorch Manual Path
 

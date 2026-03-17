@@ -136,58 +136,77 @@ Both pipelines use custom CNN architectures designed from scratch (no transfer l
 
 All models were trained through the Edge Impulse Studio web interface.
 
-| # | Architecture | Input Size | Accuracy | Notes |
-|---|-------------|-----------|----------|-------|
-| 1 | EI Big | 256×256 | 82.95% | Doesn't fit on STM32 |
-| 2 | EI Big | 128×128 | 91.83% | Doesn't fit on STM32|
-| 3 | EI Big | 64×64 | 92.92% | Fits on STM32 |
-| 4 | EI Small | 32×32 | 89.43% | Fits on STM32 |
-| 5 | EI Small | 16×16 | 82.61% | Fits on STM32 |
-
-<!-- 
-    For each model, include:
-    - Training accuracy & validation accuracy
-    - Whether it fits on the STM32 (RAM/Flash constraints)
-    - Screenshot of Edge Impulse training results (optional)
--->
+| # | Architecture | Input Size | Training Accuracy and Loss| Test Accuracy | Notes |
+|---|-------------|-----------|-----------|----------|-------|
+| 1 | EI Big | 256×256 | 86.5% - 0.6 | 82.95% | Doesn't fit on STM32 |
+| 2 | EI Big | 128×128 | 93.1% - 0.3 | 91.83% | Doesn't fit on STM32|
+| 3 | EI Big | 64×64 | 94.6% - 0.55 | 92.92% | Fits on STM32 |
+| 4 | EI Small | 32×32 | 91.8% - 0.34 | 89.43% | Fits on STM32 |
+| 5 | EI Small | 16×16 | 88.9% - 0.32 | 82.61% | Fits on STM32 |
 
 ### PyTorch Manual Pipeline
 
 All models were trained locally using PyTorch. Each configuration was trained with both SGD and Adam optimizers.
 
 **Training Hyperparameters:**
-- Learning Rate: <!-- fill (e.g., 5e-3) -->
-- Batch Size: <!-- fill -->
-- Epochs: <!-- fill -->
+- Learning Rate: 
+- Batch Size: 16
+- Epochs: 100
 - Loss Function: CrossEntropyLoss
-- Train/Val/Test Split: <!-- fill -->
+- Train/Val/Test Split: 80% training, 10% validation, 10% test
 
-| # | Architecture | Input Size | Optimizer | Train Acc | Val Acc | Test Acc |
-|---|-------------|-----------|-----------|-----------|---------|----------|
-| 1 | Big | 64×64 | SGD | <!-- fill --> | <!-- fill --> | <!-- fill --> |
-| 2 | Big | 64×64 | Adam | <!-- fill --> | <!-- fill --> | <!-- fill --> |
-| 3 | Big | 32×32 | SGD | <!-- fill --> | <!-- fill --> | <!-- fill --> |
-| 4 | Big | 32×32 | Adam | <!-- fill --> | <!-- fill --> | <!-- fill --> |
-| 5 | Big | 16×16 | SGD | <!-- fill --> | <!-- fill --> | <!-- fill --> |
-| 6 | Big | 16×16 | Adam | <!-- fill --> | <!-- fill --> | <!-- fill --> |
-| 7 | Small | 64×64 | SGD | <!-- fill --> | <!-- fill --> | <!-- fill --> |
-| 8 | Small | 64×64 | Adam | <!-- fill --> | <!-- fill --> | <!-- fill --> |
-| 9 | Small | 32×32 | SGD | <!-- fill --> | <!-- fill --> | <!-- fill --> |
-| 10 | Small | 32×32 | Adam | <!-- fill --> | <!-- fill --> | <!-- fill --> |
-| 11 | Small | 16×16 | SGD | <!-- fill --> | <!-- fill --> | <!-- fill --> |
-| 12 | Small | 16×16 | Adam | <!-- fill --> | <!-- fill --> | <!-- fill --> |
+| # | Architecture | Input Size | Learning Rate | Optimizer | Test Loss | Test Acc | Inference Time(sec) |
+|---|-------------|-----------|-----------|-----------|-----------|---------|----------|
+| 1 | Big | 64×64 | 5e-3 | SGD | 0.0099 | 97.97 | 0.0044 |
+| 2 | Big | 64×64 | 1e-3 | Adam | 0.0094 | 98.4 | 0.0052 |
+| 3 | Big | 32×32 | 5e-3 | SGD | 0.012 | 97.43 | 0.0019 |
+| 4 | Big | 32×32 | 1e-3 | Adam | 0.0153 | 97.04 | 0.0016 |
+| 5 | Big | 16×16 | 5e-3 | SGD | 0.3489 | 7.46 | 0.0009 |
+| 6 | Big | 16×16 | 1e-3 | Adam | 0.0332 | 93.85 | 0.0008 |
+| 7 | Small | 64×64 | 5e-3 | SGD | 0.0318 | 91.96 | 0.0039 |
+| 8 | Small | 64×64 | 1e-3 | Adam | 0.0282 | 97.24 | 0.004 |
+| 9 | Small | 32×32 | 5e-3 | SGD | 0.0216 | 94.82 | 0.0011 |
+| 10 | Small | 32×32 | 1e-3 | Adam | 0.0192 | 96.85 | 0.001 |
+| 11 | Small | 16×16 | 5e-3 | SGD | 0.0401 | 88.95 | 0.0006 |
+| 12 | Small | 16×16 | 1e-3 | Adam | 0.0288 | 93.12 | 0.0006 |
 
 **Training Curves:**
 
-<!-- 
-    For each of the 12 models, include the loss/accuracy plots you saved.
-    Format suggestion:
-    
-    #### Big Architecture — 64×64 — SGD
-    ![Training curves](results/big_64x64_sgd/training_curves.png)
-    
-    (repeat for each model)
--->
+#### Big Architecture — 64×64 — SGD
+![Training curves](results/plants_model_big_64_64_SGD/loss_acc.png)
+
+#### Big Architecture — 64×64 — Adam
+![Training curves](results/plants_model_big_64_64_Adam/loss_acc.png)
+
+#### Big Architecture — 32x32 — SGD
+![Training curves](results/plants_model_big_32_32_SGD/loss_acc.png)
+
+#### Big Architecture — 32x32 — Adam
+![Training curves](results/plants_model_big_32_32_Adam/loss_acc.png)
+
+#### Big Architecture — 16x16 — SGD
+![Training curves](results/plants_model_big_16_16_SGD/loss_acc.png)
+
+#### Big Architecture — 16x16 — Adam
+![Training curves](results/plants_model_big_16_16_Adam/loss_acc.png)
+
+#### Small Architecture — 64×64 — SGD
+![Training curves](results/plants_model_small_64_64_SGD/loss_acc.png)
+
+#### Small Architecture — 64×64 — Adam
+![Training curves](results/plants_model_small_64_64_Adam/loss_acc.png)
+
+#### Small Architecture — 32x32 — SGD
+![Training curves](results/plants_model_small_32_32_SGD/loss_acc.png)
+
+#### Small Architecture — 32x32 — Adam
+![Training curves](results/plants_model_small_32_32_Adam/loss_acc.png)
+
+#### Small Architecture — 16x16 — SGD
+![Training curves](results/plants_model_small_16_16_SGD/loss_acc.png)
+
+#### Small Architecture — 16x16 — Adam
+![Training curves](results/plants_model_small_16_16_Adam/loss_acc.png)
 
 ## Model Conversion & Quantization
 

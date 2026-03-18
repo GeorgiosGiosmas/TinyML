@@ -1,0 +1,17 @@
+services:
+  plant-disease-ml:
+    build: .
+    container_name: plant-disease-ml
+    ports:
+      - "8888:8888"
+    volumes:
+      # Mount your project directory so notebooks and data persist outside the container
+      - .:/workspace
+    # Uncomment the following for NVIDIA GPU support (requires nvidia-container-toolkit)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]

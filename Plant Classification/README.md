@@ -6,6 +6,7 @@ A comparative study of two end-to-end workflows for deploying a plant disease cl
 
 - [Overview](#overview)
 - [Dataset](#dataset)
+  - [Sample Images at Different Resolutions](#sample-images-at-different-resolutions)
 - [Model Architectures](#model-architectures)
 - [Training Experiments](#training-experiments)
   - [Edge Impulse Pipeline](#edge-impulse-pipeline)
@@ -57,6 +58,21 @@ The goal is to systematically compare how accuracy, model size, and inference ti
 | Potato — Healthy | 152 |
 
 **Data Split:** 80% training, 10% validation, 10% test.
+
+### Sample Images at Different Resolutions
+
+To illustrate the effect of downscaling on visual information, here are sample images from the dataset at each input resolution used in the experiments:
+
+| 256×256 | 128×128 | 64×64 | 32×32 | 16×16 |
+|---------|---------|-------|-------|-------|
+| ![256](images/sample_256.png) | ![128](images/sample_128.png) | ![64](images/sample_64.png) | ![32](images/sample_32.png) | ![16](images/sample_16.png) |
+
+<!-- 
+    To generate these images, pick one sample from the dataset and resize it to each resolution.
+    Save each as sample_256.png, sample_128.png, etc. in the images/ folder.
+-->
+
+At 32×32 and below, fine-grained visual details like leaf texture and spot patterns become difficult to distinguish by eye, yet the models still achieve strong classification accuracy — suggesting that the learned features rely more on color distribution and coarse shape patterns than on fine detail.
 
 ## Model Architectures
 
@@ -127,8 +143,6 @@ Both pipelines use custom CNN architectures designed from scratch (no transfer l
 | Small model dense layers | None (conv → output directly) | 32 (one hidden dense layer) |
 | Activation | Managed by Edge Impulse | LeakyReLU |
 | Quantization | Automatic (int8) | Manual (PyTorch → ONNX → TF → TFLite) |
-
-<!-- Add total parameter counts for each architecture at each input resolution -->
 
 ## Training Experiments
 
@@ -229,31 +243,37 @@ The manual conversion pipeline follows these steps:
 PyTorch (.pt) → ONNX (.onnx) → TensorFlow (SavedModel) → TFLite (.tflite) → STM32CubeAI
 ```
 
-<!-- 
-    For each step, describe:
-    1. PyTorch → ONNX: torch.onnx.export with opset_version=13
-    2. ONNX → TensorFlow: onnx-tf (onnx_tf.backend.prepare)
-    3. TensorFlow → TFLite: tf.lite.TFLiteConverter with full integer quantization
-       - Mention the representative_dataset requirement
-       - Mention the int8 quantization for MCU compatibility
-    4. TFLite → STM32CubeAI: validation, code generation, integration
-    
-    Note the challenges encountered (e.g., the inference_input_type error and how it was resolved).
--->
+#### PyTorch → ONNX:
+![Pytorch_to_ONNX](images/pytorch_to_onnx.png)
+
+#### ONNX → TensorFlow:
+![ONNX_to_TensorFlow](images/onnx_to_tensorflow.png)
+
+#### TensorFlow → TfLite:
+![Tensorflow_to_TfLite](images/tensorflow_to_tflite.png)
 
 **Quantization Details:**
 
-<!-- 
-    Explain:
-    - Why quantization is necessary (MCU memory constraints, no FPU or slow FPU)
-    - Post-training quantization approach used
-    - Representative dataset size and how it was generated
-    - Resulting model sizes before and after quantization
--->
+The STM32F407G features a Cortex-M4F with a single-precision FPU, but running float32 inference on an MCU is still significantly slower and more memory-intensive than int8 integer operations. More critically, the 1 MB of Flash and 192 KB of RAM on this board impose hard limits on model size — unquantized models simply do not fit in many cases.
+
+Post-training quantization was applied using TensorFlow Lite's converter. The approach used is full integer quantization, where both weights and activations are quantized from float32 to int8. This requires a representative dataset to calibrate the quantization: a subset of 200 samples from the test set is fed through the model so the converter can measure the activation value ranges at each layer and compute appropriate scale/zero-point parameters for the int8 mapping.
+
+The model's input and output types are also set to int8, meaning no float operations occur at any stage during inference — this is the configuration that STM32CubeAI is optimized for. The resulting size reduction is consistently around 70–75% across all model configurations:
 
 | Model | Pre-Quantization Size | Post-Quantization Size | Size Reduction |
 |-------|----------------------|----------------------|----------------|
-| <!-- fill for each model that was converted --> | | | |
+| Big Architecture — 64x64 — SGD | 2.7 MB | 680.4 kB | 74.8% |
+| Big Architecture — 64x64 — Adam | 2.7 MB | 680.4 kB | 74.8% |
+| Big Architecture — 32x32 — SGD | 1.1 MB | 287.2 kB | 73.9% |
+| Big Architecture — 32x32 — Adam | 1.1 MB | 287.2 kB | 73.9% |
+| Big Architecture — 16x16 — SGD | 696.3 kB| 189 kB | 72.85% |
+| Big Architecture — 16x16 — Adam | 696.3 kB| 189 kB | 72.85% |
+| Small Architecture — 64x64 — SGD | 1.1 MB | 273.6 kB | 75.12% |
+| Small Architecture — 64x64 — Adam | 1.1 MB | 273.6 kB | 75.12% |
+| Small Architecture — 32x32 — SGD | 288.2 kB | 77 kB | 73.33% |
+| Small Architecture — 32x32 — Adam | 288.2 kB | 77 kB | 73.33% |
+| Small Architecture — 16x16 — SGD | 91.6 kB | 27.8 kB | 69.65% |
+| Small Architecture — 16x16 — Adam | 91.6 kB | 27.8 kB | 69.65% |
 
 ## Deployment on STM32
 
@@ -336,30 +356,98 @@ PyTorch (.pt) → ONNX (.onnx) → TensorFlow (SavedModel) → TFLite (.tflite) 
 
 ## How to Reproduce
 
-### Prerequisites
-- Python 3.10+
-- PyTorch
-- Edge Impulse CLI (for Edge Impulse path)
-- STM32CubeAI (for manual path)
-- STM32CubeMX / STM32CubeIDE
+### PyTorch Pipeline (Docker — Recommended)
 
-### Steps
+The PyTorch training and conversion pipeline relies on a very specific set of pinned package versions (Python 3.10, TensorFlow 2.10, onnx 1.12, onnx-tf 1.10) due to compatibility constraints in the ONNX-to-TensorFlow conversion chain. A Docker setup is provided to avoid dependency issues entirely.
+
+#### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) installed on your system
+
+#### Installing Docker
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install docker.io
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# Add your user to the docker group (avoids needing sudo)
+sudo usermod -aG docker $USER
+# Log out and back in for the group change to take effect
+```
+
+**Windows:**
+1. Download and install [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
+2. During installation, ensure WSL 2 backend is selected
+3. Restart your computer after installation
+4. Open Docker Desktop and wait for it to start
+
+**macOS:**
+1. Download and install [Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/) (choose Apple Silicon or Intel depending on your Mac)
+2. Open Docker Desktop and wait for it to start
+
+#### Running the Notebook
 
 ```bash
 # Clone the repository
 git clone https://github.com/<your-username>/<repo-name>.git
 cd <repo-name>
 
-# Install Python dependencies
+# Build the image and start the container
+docker compose up --build
+```
+
+On the first run, this will build the Docker image with all pinned dependencies — this takes a few minutes. Subsequent runs reuse the cached image:
+
+```bash
+# Start without rebuilding
+docker compose up
+```
+
+Once the container is running, open `http://localhost:8888` in your browser. Jupyter Notebook will be running with `main.ipynb` ready to use. All files (notebooks, trained models, results) are mounted from your local directory and persist after the container stops.
+
+To stop the container:
+```bash
+docker compose down
+```
+
+> **Note on the dependency pinning:** The `onnx-tf` library (last release: v1.10.0, March 2022) is no longer maintained and only works with specific versions of `onnx` and `tensorflow`. The Docker setup exists precisely to encapsulate this fragile dependency chain — this is a real-world pain point that the Edge Impulse workflow avoids entirely, since it uses Keras/TensorFlow natively and never needs to cross framework boundaries.
+
+### PyTorch Pipeline (Manual Installation)
+
+If you prefer not to use Docker, you can install the dependencies directly. **Python 3.10 is required** — newer versions are not compatible with `onnx-tf`.
+
+```bash
+# Clone the repository
+git clone https://github.com/<your-username>/<repo-name>.git
+cd <repo-name>
+
+# Create a virtual environment with Python 3.10
+python3.10 -m venv venv
+source venv/bin/activate  # Linux/macOS
+# or: venv\Scripts\activate  # Windows
+
+# Install pinned dependencies
 pip install -r requirements.txt
 
-# Run the Jupyter Notebook for PyTorch training
+# Run the Jupyter Notebook
 jupyter notebook main.ipynb
 ```
 
+### Edge Impulse Pipeline
+
+The Edge Impulse models were trained through the [Edge Impulse Studio](https://studio.edgeimpulse.com/) web interface — no local installation is required for training and deployment.
+
+### STM32 Deployment
+
+- **Edge Impulse path:** Import the `.pack` file into STM32CubeIDE via the CMSIS-PACK manager
+- **Manual path:** Import the `.tflite` file into STM32CubeAI within STM32CubeIDE
+- Both require [STM32CubeIDE](https://www.st.com/en/development-tools/stm32cubeide.html)
+
 <!-- 
     Add more detailed instructions for:
-    - Setting up Edge Impulse project
     - Running STM32CubeAI validation
     - Flashing the board
 -->
@@ -368,16 +456,19 @@ jupyter notebook main.ipynb
 
 - **ML Frameworks:** PyTorch, TensorFlow/TFLite
 - **Deployment Tools:** Edge Impulse, STM32CubeAI
-- **Hardware:** STM32 STM32F407G-DISC1
+- **Hardware:** STM32F407G-DISC1
 - **Languages:** Python, C
-- **Other:** ONNX, onnx-tf, Jupyter Notebook
+- **Other:** ONNX, onnx-tf, Docker, Jupyter Notebook
 
 ## Repository Structure
 
 ```
 ├── README.md
 ├── main.ipynb                          # PyTorch training notebook
-├── requirements.txt
+├── requirements.txt                    # Pinned Python dependencies
+├── Dockerfile                          # Docker image definition
+├── docker-compose.yml                  # Docker Compose configuration
+├── .dockerignore
 ├── edge_impulse/
 │   ├── models/                         # .pack files and Edge Impulse exports
 │   └── results/                        # Screenshots, accuracy/loss data

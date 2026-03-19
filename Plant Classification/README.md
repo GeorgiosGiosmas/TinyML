@@ -277,27 +277,31 @@ The model's input and output types are also set to int8, meaning no float operat
 
 ## Deployment on STM32
 
+> *Note on Build Configuration:* All inference time measurements on the STM32 were taken using the Release build configuration in STM32CubeIDE. In Debug mode, compiler optimizations are disabled (-O0 or -Og), which prevents the CMSIS-NN kernels from being properly optimized — meaning the int8 quantized models lose their speed advantage and run at nearly the same speed as the float32 versions. In Release mode, the compiler uses -O2 or -O3, enabling SIMD instructions (dual MAC operations on packed int8 values), loop unrolling, and function inlining — which is where the real performance gain of int8 quantization comes from on Cortex-M4F. For example, the EI Small 16x16 model returned 157ms in Debug but 20ms in Release, matching Edge Impulse's prediction exactly. Debug builds are useful for stepping through code, but their timing numbers are not meaningful for performance comparison.
+
 **Target Board:** STM32F407G-DISC1
 
-<!-- 
-    Briefly describe:
-    - Board specifications (Flash, RAM, CPU frequency, FPU availability)
-    - Why this board was chosen
--->
+**To deploy each of the available .pack files on *STM32F407G-DISC1* follow the instructions provided on** —
+[Deploy_PACK_file_on_STM](https://docs.edgeimpulse.com/hardware/deployments/run-cubemx)
 
 ### Edge Impulse Deployment
 
-<!-- 
-    Describe:
-    - How the .pack file was loaded onto the board
-    - The inference setup (what input was used, how images were fed)
-    - Inference time results per model
--->
+- int8
 
 | Model | Edge Impulse Predicted Inference Time | Actual Inference Time | RAM Usage | Flash Usage |
-|-------|--------------------------------------|----------------------|-----------|-------------|
-| Small 32×32 | <!-- fill --> | <!-- fill --> | <!-- fill --> | <!-- fill --> |
-| Small 16×16 | <!-- fill --> | <!-- fill --> | <!-- fill --> | <!-- fill --> |
+|-------|--------------------------------------|----------------------|-------------|-----------|
+| Big   64x64 | 334 ms | 496 ms | 85.3 kB | 577.4 kB |
+| Small 32×32 | 64 ms | 79 ms | 22.8 kB | 64.4 kB |
+| Small 16×16 | 19 ms | 20 ms | 7.8 kB| 41.9 kB | 
+
+
+- float32
+
+| Model | Edge Impulse Predicted Inference Time | Actual Inference Time | RAM Usage | Flash Usage |
+|-------|--------------------------------------|----------------------|-------------|-----------|
+| Small 32×32 | 687 ms | 1710 ms | 81.6 kB  | 161.6 kB |
+| Small 16×16 | 190 ms | 398 ms | 21.6 kB | 71.6 kB | 
+
 
 ### STM32CubeAI Deployment
 

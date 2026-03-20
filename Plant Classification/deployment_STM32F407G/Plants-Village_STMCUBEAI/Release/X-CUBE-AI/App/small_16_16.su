@@ -1,0 +1,11 @@
+../X-CUBE-AI/App/small_16_16.c:993:9:ai_small_16_16_get_info	152	static
+../X-CUBE-AI/App/small_16_16.c:1040:9:ai_small_16_16_get_report	152	static
+../X-CUBE-AI/App/small_16_16.c:1087:10:ai_small_16_16_get_error	0	static
+../X-CUBE-AI/App/small_16_16.c:1094:10:ai_small_16_16_create	16	static
+../X-CUBE-AI/App/small_16_16.c:1140:12:ai_small_16_16_inputs_get	0	static
+../X-CUBE-AI/App/small_16_16.c:1151:12:ai_small_16_16_outputs_get	0	static
+../X-CUBE-AI/App/small_16_16.c:1162:11:ai_small_16_16_destroy	0	static
+../X-CUBE-AI/App/small_16_16.c:1169:9:ai_small_16_16_init	40	static
+../X-CUBE-AI/App/small_16_16.c:1105:10:ai_small_16_16_create_and_init	96	static
+../X-CUBE-AI/App/small_16_16.c:1186:8:ai_small_16_16_run	0	static
+../X-CUBE-AI/App/small_16_16.c:1194:8:ai_small_16_16_forward	0	static

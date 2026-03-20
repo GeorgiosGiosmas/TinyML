@@ -1,0 +1,4 @@
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/micro/kernels/dequantize.cpp:31:7:void* tflite::DequantizeInit(TfLiteContext*, const char*, size_t)	8	static
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/kernels/internal/types.h:312:12:int tflite::MatchingFlatSize(const RuntimeShape&, const RuntimeShape&)	16	static
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/micro/kernels/dequantize.cpp:37:14:TfLiteStatus tflite::DequantizeEval(TfLiteContext*, TfLiteNode*)	80	static
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/micro/kernels/dequantize.cpp:83:20:TfLiteRegistration tflite::Register_DEQUANTIZE()	16	static

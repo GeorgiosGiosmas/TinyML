@@ -1,0 +1,13 @@
+../X-CUBE-AI/App/small_16_16.c:887:9:small_16_16_configure_activations	2
+../X-CUBE-AI/App/small_16_16.c:948:9:small_16_16_configure_weights	2
+../X-CUBE-AI/App/small_16_16.c:993:9:ai_small_16_16_get_info	4
+../X-CUBE-AI/App/small_16_16.c:1040:9:ai_small_16_16_get_report	4
+../X-CUBE-AI/App/small_16_16.c:1087:10:ai_small_16_16_get_error	1
+../X-CUBE-AI/App/small_16_16.c:1094:10:ai_small_16_16_create	1
+../X-CUBE-AI/App/small_16_16.c:1105:10:ai_small_16_16_create_and_init	8
+../X-CUBE-AI/App/small_16_16.c:1140:12:ai_small_16_16_inputs_get	2
+../X-CUBE-AI/App/small_16_16.c:1151:12:ai_small_16_16_outputs_get	2
+../X-CUBE-AI/App/small_16_16.c:1162:11:ai_small_16_16_destroy	1
+../X-CUBE-AI/App/small_16_16.c:1169:9:ai_small_16_16_init	2
+../X-CUBE-AI/App/small_16_16.c:1186:8:ai_small_16_16_run	1
+../X-CUBE-AI/App/small_16_16.c:1194:8:ai_small_16_16_forward	1

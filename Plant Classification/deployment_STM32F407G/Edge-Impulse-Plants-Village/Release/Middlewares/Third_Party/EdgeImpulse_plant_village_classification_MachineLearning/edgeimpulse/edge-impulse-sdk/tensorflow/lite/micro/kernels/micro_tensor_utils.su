@@ -1,0 +1,3 @@
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/micro/kernels/micro_tensor_utils.cpp:33:6:void tflite::PortableApplySigmoidToVector(const float*, int, float*)	32	static
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/micro/kernels/micro_tensor_utils.cpp:40:6:void tflite::PortableApplyTanhToVector(const float*, int, float*)	24	static
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/micro/kernels/micro_tensor_utils.cpp:46:6:void tflite::PortableApplyActivationToVector(const float*, int, TfLiteFusedActivation, float*)	4	static

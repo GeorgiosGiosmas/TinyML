@@ -1,0 +1,6 @@
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/micro/kernels/slice.cpp:47:14:TfLiteStatus tflite::{anonymous}::Prepare(TfLiteContext*, TfLiteNode*)	16
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/kernels/internal/runtime_shape.h:59:11:int32_t tflite::RuntimeShape::Dims(int) const	2
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/kernels/internal/runtime_shape.h:99:3:tflite::RuntimeShape::RuntimeShape(int, const tflite::RuntimeShape&, int)	3
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/kernels/internal/runtime_shape.h:137:12:int tflite::Offset(const RuntimeShape&, int, int, int, int, int)	21
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/micro/kernels/slice.cpp:84:14:TfLiteStatus tflite::{anonymous}::Eval(TfLiteContext*, TfLiteNode*)	42
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/micro/kernels/slice.cpp:153:20:TfLiteRegistration tflite::Register_SLICE()	1

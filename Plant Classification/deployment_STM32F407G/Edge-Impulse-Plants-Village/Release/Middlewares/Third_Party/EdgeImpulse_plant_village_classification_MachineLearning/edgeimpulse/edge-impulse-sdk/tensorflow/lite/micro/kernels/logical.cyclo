@@ -1,0 +1,4 @@
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/micro/kernels/logical.cpp:26:14:TfLiteStatus tflite::{anonymous}::LogicalOrEval(TfLiteContext*, TfLiteNode*)	1
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/micro/kernels/logical.cpp:30:14:TfLiteStatus tflite::{anonymous}::LogicalAndEval(TfLiteContext*, TfLiteNode*)	1
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/micro/kernels/logical.cpp:36:20:TfLiteRegistration tflite::Register_LOGICAL_OR()	1
+../Middlewares/Third_Party/EdgeImpulse_plant_village_classification_MachineLearning/edgeimpulse/edge-impulse-sdk/tensorflow/lite/micro/kernels/logical.cpp:40:20:TfLiteRegistration tflite::Register_LOGICAL_AND()	1

@@ -20,6 +20,7 @@ A comparative study of two end-to-end workflows for deploying a plant disease cl
   - [Model Size Comparison](#model-size-comparison)
   - [Inference Time Comparison](#inference-time-comparison)
 - [Key Takeaways](#key-takeaways)
+- [Future Work](#future-work)
 - [How to Reproduce](#how-to-reproduce)
 - [Tools & Technologies](#tools--technologies)
 
@@ -305,58 +306,101 @@ The model's input and output types are also set to int8, meaning no float operat
 
 ### STM32CubeAI Deployment
 
+For the PyTorch models, the quantized .tflite files were imported into STM32CubeAI within STM32CubeIDE. STM32CubeAI generates optimized C inference code from the model, which is then integrated into a custom STM32 project. The input image data is preprocessed (normalized from uint8 0-255 to float 0.0-1.0, then quantized to int8 using the model's scale and zero-point parameters) and fed to the inference function. The output is an array of 15 int8 values (one per class), converted back to float using the output quantization parameters. The predicted class is the index with the highest value.
+
 <!-- 
-    Describe:
-    - How STM32CubeAI was used to validate and generate code from .tflite
-    - The integration process into an STM32 project
-    - Inference time results per model
+    Add screenshots here showing:
+    - STM32CubeAI model import and analysis
+    - STM32CubeIDE project configuration
+    - Serial terminal output with inference results
+    - Instructions on how to build and flash the project
 -->
 
-| Model | STM32CubeAI Estimated Inference Time | Actual Inference Time | RAM Usage | Flash Usage |
-|-------|-------------------------------------|----------------------|-----------|-------------|
-| <!-- fill for each model deployed --> | | | | |
+| Model | Inference Time | RAM Usage | Flash Usage |
+|-------|-------------------------------------|----------------------|-----------|
+| Big 64x64 SGD | 240 ms | 44.81 kB | 691.29 kB | 
+| Big 64x64 Adam | 240 ms | 44.81 kB | 691.29 kB | 
+| Big 32x32 SGD | 72 ms | 21.25 kB | 307.3 kB | 
+| Big 32x32 Adam | 72 ms | 21.25 kB | 307.3 kB | 
+| Big 16x16 SGD | 23 ms | 18.89 kB | 212.1 kB | 
+| Big 16x16 Adam | 23 ms | 18.89 kB | 212.1 kB | 
+| Small 64x64 SGD | 119 ms | 40.49 | 294.93 kB |  
+| Small 64x64 Adam | 119 ms | 40.49 | 294.93 kB | 
+| Small 32x32 SGD | 33 ms | 16.68 kB | 102.92 kB |
+| Small 32x32 Adam | 32 ms | 16.68 kB | 102.92 kB | 
+| Small 16x16 SGD | 9 ms |  12.55 kB | 54.92 kB | 
+| Small 16x16 Adam | 9 ms | 12.55 kB | 54.92 kB | 
 
 ## Results & Comparison
 
 ### Accuracy Comparison
 
-<!-- 
-    A summary table or chart comparing accuracy across:
-    - Input sizes (256→128→64→32→16)
-    - Architectures (Big vs Small)
-    - Optimizers (SGD vs Adam, for PyTorch models)
-    - Pipelines (Edge Impulse vs PyTorch)
-    
-    Key insight: smaller input sizes and architectures maintained accuracy.
--->
+The PyTorch models consistently outperformed Edge Impulse models on test accuracy, likely due to the deeper architectures (4 conv layers vs 3 for Big, and an extra dense layer for Small) and the longer training regime (100 epochs locally vs Edge Impulse's cloud training).
+
+| Input Size | EI Test Acc | PyTorch Best Test Acc | PyTorch Model | Optimizer |
+|-----------|------------|----------------------|---------------|-----------|
+| 64×64 | 92.92% | 98.40% | Big | Adam |
+| 32×32 | 89.43% | 97.43% | Big | SGD |
+| 16×16 | 82.61% | 93.85% | Big | Adam |
+
+Adam consistently outperformed SGD on the PyTorch side, especially at lower resolutions. The most striking case is the Big 16×16 model: SGD achieved only 7.46% accuracy (essentially random), while Adam reached 93.85%. This suggests that at very low resolutions, the loss landscape becomes harder to navigate and SGD's fixed momentum gets stuck, while Adam's adaptive learning rate can still find good minima.
+
+Even at 16×16 resolution — where images are barely recognizable to the human eye — both pipelines achieve over 80% accuracy, demonstrating that the models learn color and coarse shape patterns rather than fine texture details.
 
 ### Model Size Comparison
 
-<!-- 
-    Compare the final deployed model sizes from both pipelines.
-    Note which models fit on the STM32 and which don't.
--->
+Quantization reduced the PyTorch model sizes by 70–75% consistently. The table below compares the final deployed model footprint (RAM + Flash) between the two pipelines for comparable configurations:
+
+| Model | EI int8 RAM | EI int8 Flash | CubeAI RAM | CubeAI Flash |
+|-------|------------|--------------|------------|-------------|
+| Big 64×64 | 85.3 kB | 577.4 kB | 44.81 kB | 691.29 kB |
+| Small 32×32 | 22.8 kB | 64.4 kB | 16.68 kB | 102.92 kB |
+| Small 16×16 | 7.8 kB | 41.9 kB | 12.55 kB | 54.92 kB |
+
+Edge Impulse models use less Flash in every case, which is expected since the EI architectures are shallower (fewer layers and parameters). The EI Small models also use less RAM due to having no hidden dense layers. Notably, the EI Big 64×64 model uses almost 2× the RAM of the CubeAI equivalent, despite having fewer conv layers — this is likely because Edge Impulse's EON Compiler and STM32CubeAI use different memory allocation strategies for intermediate activations.
+
+The float32 Edge Impulse models are dramatically larger than their int8 counterparts: the Small 32×32 goes from 22.8 kB to 81.6 kB RAM and from 64.4 kB to 161.6 kB Flash — roughly 2.5–3.5× the footprint. The Big 64×64 float32 model doesn't even fit on the STM32, making quantization not just a speed optimization but a hard requirement for deployment.
 
 ### Inference Time Comparison
 
-<!-- 
-    Compare inference times:
-    - Edge Impulse predicted vs actual
-    - STM32CubeAI estimated vs actual
-    - Edge Impulse deployed vs STM32CubeAI deployed (for same architecture/input size)
--->
+This is where the most significant differences emerge.
+
+**Edge Impulse: float32 vs int8 (effect of quantization)**
+
+| Model | float32 | int8 | Speedup |
+|-------|---------|------|---------|
+| Small 32×32 | 1710 ms | 79 ms | **21.6×** |
+| Small 16×16 | 398 ms | 20 ms | **19.9×** |
+
+The ~20× speedup from int8 quantization on Cortex-M4F is far beyond the typical 3–4× quoted for general hardware. This is because the Cortex-M4F's CMSIS-NN kernels use SIMD instructions to process four int8 values in a single 32-bit register, providing roughly 4× throughput from data packing alone, plus additional gains from the smaller memory footprint reducing data movement overhead.
+
+**Edge Impulse vs STM32CubeAI (int8 — same board, different runtimes)**
+
+| Model | EI int8 | CubeAI int8 | CubeAI Speedup |
+|-------|---------|------------|----------------|
+| Big 64×64 | 496 ms | 240 ms | **2.1×** |
+| Small 32×32 | 79 ms | ~33 ms | **2.4×** |
+| Small 16×16 | 20 ms | 9 ms | **2.2×** |
+
+STM32CubeAI consistently runs inference approximately **2× faster** than Edge Impulse's EON Compiler on the same board with comparable int8 models. This is a significant finding. The reason is that STM32CubeAI is ST's own inference engine, optimized specifically for their silicon, while Edge Impulse's EON Compiler is a general-purpose tool that targets many different MCU families and cannot optimize as aggressively for any single chip.
+
+**Edge Impulse predictions vs actual measurements**
+
+Edge Impulse's inference time predictions were reasonably accurate for int8 models (within 1–1.5× of actual), but significantly underestimated for float32 models (actual was 2–2.5× slower than predicted). This suggests the prediction model is well-calibrated for the quantized CMSIS-NN path but less accurate for the float32 FPU path on this specific board.
 
 ## Key Takeaways
 
-<!-- 
-    Summarize what you learned:
-    1. Smaller models (32×32, 16×16 input) maintained accuracy while fitting on the MCU.
-    2. Edge Impulse provides a faster, more streamlined deployment path.
-    3. The manual PyTorch pipeline offers more control but involves a fragile multi-step conversion.
-    4. Quantization is essential for MCU deployment — full int8 quantization significantly reduces model size.
-    5. Adam vs SGD: which performed better at smaller resolutions?
-    6. Any surprises in inference time differences between the two deployment paths.
--->
+1. **Quantization is essential, not optional.** On the STM32F407G, int8 quantization provides a ~20× inference speedup over float32 and reduces model size by 70–75%. Some models don't fit on the board at all without quantization.
+
+2. **STM32CubeAI runs 2× faster than Edge Impulse** on the same hardware with comparable models. ST's proprietary inference engine is more tightly optimized for their own silicon. This is the main performance advantage of the manual pipeline.
+
+3. **Edge Impulse is dramatically easier to use.** The entire workflow — from training to deployment — takes minutes and requires no local toolchain setup, no dependency management, and no conversion pipeline. The PyTorch manual path requires Docker, pinned Python 3.10 dependencies, a fragile 4-step conversion chain (PyTorch → ONNX → TensorFlow → TFLite), and writing custom C code for the STM32 project.
+
+4. **Adam outperforms SGD at low resolutions.** At 16×16, SGD completely failed on the Big architecture (7.46% accuracy) while Adam achieved 93.85%. At higher resolutions the gap narrows, but Adam was consistently better across all configurations.
+
+5. **Smaller models maintain surprisingly high accuracy.** Even at 32×32 and 16×16 input resolution, both pipelines achieve 80–97% test accuracy on 15-class classification. The models appear to rely on color distribution and coarse shape patterns rather than fine visual details.
+
+6. **The architectures are not identical across pipelines**, which means the comparison is between two complete workflows (including architecture design choices) rather than a controlled experiment isolating a single variable. This is intentional — it reflects how a real engineer would use each tool, designing the network within each platform's constraints.
 
 ## How to Reproduce
 
@@ -491,21 +535,3 @@ The Edge Impulse models were trained through the [Edge Impulse Studio](https://s
 └── docs/
     └── comparison_tables/              # Final comparison data, charts
 ```
-
----
-
-<!-- 
-    OPTIONAL SECTIONS TO CONSIDER ADDING LATER:
-    
-    ## Future Work
-    - Try transfer learning (MobileNetV2, EfficientNet-Lite) for higher accuracy
-    - Test on different STM32 boards (e.g., STM32H7 with more RAM)
-    - Add a camera module for real-time inference
-    - Compare against other deployment frameworks (TFLite Micro directly, CMSIS-NN)
-    
-    ## References
-    - PlantVillage dataset paper
-    - Edge Impulse documentation
-    - STM32CubeAI documentation
-    - PyTorch to TFLite conversion guides
--->

@@ -68,11 +68,6 @@ To illustrate the effect of downscaling on visual information, here are sample i
 |---------|---------|-------|-------|-------|
 | ![256](images/sample_256.png) | ![128](images/sample_128.png) | ![64](images/sample_64.png) | ![32](images/sample_32.png) | ![16](images/sample_16.png) |
 
-<!-- 
-    To generate these images, pick one sample from the dataset and resize it to each resolution.
-    Save each as sample_256.png, sample_128.png, etc. in the images/ folder.
--->
-
 At 32×32 and below, fine-grained visual details like leaf texture and spot patterns become difficult to distinguish by eye, yet the models still achieve strong classification accuracy — suggesting that the learned features rely more on color distribution and coarse shape patterns than on fine detail.
 
 ## Model Architectures
@@ -164,7 +159,7 @@ All models were trained through the Edge Impulse Studio web interface.
 All models were trained locally using PyTorch. Each configuration was trained with both SGD and Adam optimizers.
 
 **Training Hyperparameters:**
-- Learning Rate: 
+- Learning Rate: 1e-3 and 5e-3
 - Batch Size: 16
 - Epochs: 100
 - Loss Function: CrossEntropyLoss
@@ -308,13 +303,34 @@ The model's input and output types are also set to int8, meaning no float operat
 
 For the PyTorch models, the quantized .tflite files were imported into STM32CubeAI within STM32CubeIDE. STM32CubeAI generates optimized C inference code from the model, which is then integrated into a custom STM32 project. The input image data is preprocessed (normalized from uint8 0-255 to float 0.0-1.0, then quantized to int8 using the model's scale and zero-point parameters) and fed to the inference function. The output is an array of 15 int8 values (one per class), converted back to float using the output quantization parameters. The predicted class is the index with the highest value.
 
-<!-- 
-    Add screenshots here showing:
-    - STM32CubeAI model import and analysis
-    - STM32CubeIDE project configuration
-    - Serial terminal output with inference results
-    - Instructions on how to build and flash the project
--->
+- Selection of STM32CubeAI from STM32CubeMX
+![STM32CubeAI_Selection](images/STM32CubeAI_Selection.png)
+
+- Analysis of the model by STM32CubeAI from STM32CubeMX
+![STM32CubeAI_Selection](images/STM32CubeAI_Model_Analysis.png)
+
+In order to create the binary that will be flashed on the STM32F407G DISC1, we follow the instructions of [STM32F407G_DISC1_Documentation](https://stedgeai-dc.st.com/assets/embedded-docs/stm32_how_to_run_a_model_locally.html) and create the *[STM32CubeAI_Project](deployment_STM32F407G/Plants-Village_STMCUBEAI)*. This project can run Inference for all our models since the model's variables maintain every time the same name. The only thing we have to do is switch between TfLite models in STM32CubeMX and re-generate the code.
+
+We acquire results from the terminal by configuring USART2 and measure the inference speed of each model by utilising Systick. The speed is being measured in ms by calling HAL_GetTick() at the start and then at the end of Inference. The function returns the number of ticks elapsed, more accurately the number of counts by Systick Timer which has a period of 1 ms.
+
+The results in the terminal have the following format:
+  * **Model Name**
+  * **Model Signature**
+  * **Input Buffer Shape**
+  * **Output Buffer Shape**
+  * **Inference Speed in ms**
+  * **Output Vector of the model(shape 1x15) with scores per Class**
+ 
+
+  #### Small 16x16 Adam - Tomato Septoria Leaf Spot, Class No. 9
+  ![Small 16x16 Adam_Terminal](images/Tomato_Septoria_leaf_spot_small_16_16_Adam.png)
+
+
+  #### Small 32x32 SGD - Tomato Leaf Mold, Class No. 8
+  ![Small 32x32 SGD_Terminal](images/Tomato_leaf_mold_small_32_32_SGD.png)
+
+> **Note:** STM32CubeMX and STM32CubeIDE version *2.0.0*.
+
 
 | Model | Inference Time | RAM Usage | Flash Usage |
 |-------|-------------------------------------|----------------------|-----------|
@@ -324,8 +340,8 @@ For the PyTorch models, the quantized .tflite files were imported into STM32Cube
 | Big 32x32 Adam | 72 ms | 21.25 kB | 307.3 kB | 
 | Big 16x16 SGD | 23 ms | 18.89 kB | 212.1 kB | 
 | Big 16x16 Adam | 23 ms | 18.89 kB | 212.1 kB | 
-| Small 64x64 SGD | 119 ms | 40.49 | 294.93 kB |  
-| Small 64x64 Adam | 119 ms | 40.49 | 294.93 kB | 
+| Small 64x64 SGD | 119 ms | 40.49 kB | 294.93 kB |  
+| Small 64x64 Adam | 119 ms | 40.49 kB | 294.93 kB | 
 | Small 32x32 SGD | 33 ms | 16.68 kB | 102.92 kB |
 | Small 32x32 Adam | 32 ms | 16.68 kB | 102.92 kB | 
 | Small 16x16 SGD | 9 ms |  12.55 kB | 54.92 kB | 
@@ -494,12 +510,6 @@ The Edge Impulse models were trained through the [Edge Impulse Studio](https://s
 - **Manual path:** Import the `.tflite` file into STM32CubeAI within STM32CubeIDE
 - Both require [STM32CubeIDE](https://www.st.com/en/development-tools/stm32cubeide.html)
 
-<!-- 
-    Add more detailed instructions for:
-    - Running STM32CubeAI validation
-    - Flashing the board
--->
-
 ## Tools & Technologies
 
 - **ML Frameworks:** PyTorch, TensorFlow/TFLite
@@ -517,21 +527,16 @@ The Edge Impulse models were trained through the [Edge Impulse Studio](https://s
 ├── Dockerfile                          # Docker image definition
 ├── docker-compose.yml                  # Docker Compose configuration
 ├── .dockerignore
-├── edge_impulse/
-│   ├── models/                         # .pack files and Edge Impulse exports
-│   └── results/                        # Screenshots, accuracy/loss data
-├── pytorch/
-│   ├── models/                         # Saved .pt model files
-│   ├── results/                        # Training curves for all 12 configurations
-│   │   ├── big_64x64_sgd/
-│   │   ├── big_64x64_adam/
-│   │   ├── big_32x32_sgd/
-│   │   ├── ...
-│   │   └── small_16x16_adam/
-│   └── converted/                      # ONNX, TF SavedModel, and TFLite files
-├── stm32/
-│   ├── edge_impulse_deployment/        # Edge Impulse firmware project
-│   └── cubeai_deployment/              # STM32CubeAI project
-└── docs/
-    └── comparison_tables/              # Final comparison data, charts
+├── dataset_csv                         # Fixed train, val and test images for all models of pytorch flow
+├── deployment_STM32F407G               # Projects for Edge Impulse and Pytorch flow for STM32CubeIDE
+|   ├── Edge-Impulse-Plants-Village
+|   ├── Plants-Village_STM32CUBEAI
+├── images                              # For README.md
+├── packs/                              # .pack files and Edge Impulse exports
+├── results/                        # Training curves, .pt, ONNX, tensorflow, and TFLite files for all 12 configurations
+│   ├── plants_model_big_64x64_Adam/
+│   ├── plants_model_big_64x64_SGD/
+│   ├── plants_model_big_32x32_Adam/
+│   ├── ...
+│   └── plants_model_small_16x16_SGD/
 ```
